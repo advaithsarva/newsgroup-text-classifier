@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+.env
+venv/
+.DS_Store
+Thumbs.db
+
+# Large data files
+TextModeling/Sources/arxiv-metadata-oai-snapshot.json
+Task Scheduling/Output/
