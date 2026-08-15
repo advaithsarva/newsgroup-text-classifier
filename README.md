@@ -44,6 +44,7 @@ the first stage onward.
 | `TextModeling/Code/` | Original notebooks — reference only, see caveats below. |
 | `TextModeling/Sources/` | Original corpus dumps. Superseded by the sklearn loader. |
 | `Task Scheduling/` | Separate Flask file-upload app. Unrelated to the pipeline. |
+| `TextAnalysis/ExtractText.py` | 11 import lines, no code. Kept only because it costs nothing. |
 
 ## Notebook caveats
 
@@ -72,8 +73,11 @@ them by accident:
   current spaCy.
 - `Untitled2.ipynb` does not parse (`if match=True:`).
 
-`Task Scheduling/ML model/RAG.ipynb` and `Summarization.ipynb` are third-party
-tutorial notebooks, not original work.
+Removed 2026-08-15 as not part of this project: `RAG.ipynb` and
+`Summarization.ipynb` (third-party tutorial notebooks, not original work) and
+`UI UX/` (an unrelated Loki series timeline demo). Both are recoverable from
+git history. `Task Scheduling/Sources/human-nutrition-text.pdf` is now orphaned
+— it was only `RAG.ipynb`'s input, and that notebook downloaded it itself.
 
 ## Configuration
 
