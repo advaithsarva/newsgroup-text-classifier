@@ -19,9 +19,9 @@ nothing to download by hand.
 ## Run
 
 ```bash
-python src/pipeline.py                 # 4 categories, KMeans
-python src/pipeline.py --all           # all 20
-python src/pipeline.py --all --topics 20
+python src/run.py                 # 4 categories, KMeans
+python src/run.py --all           # all 20
+python src/run.py --all --topics 20
 ```
 
 ## Tests
@@ -39,12 +39,26 @@ the first stage onward.
 
 | Path | What |
 |---|---|
-| `src/pipeline.py` | The pipeline. Load is done; clean/vectorize/cluster/topics are stubs. |
-| `tests/test_pipeline.py` | Regression tests against the original bugs. |
+One module per stage, matching the original notebooks:
+
+| Path | Replaces | State |
+|---|---|---|
+| `src/data.py` | reading `Sources/*.txt` by hand | **done** |
+| `src/clean.py` | `Preprocessing.ipynb` | TODO |
+| `src/tfidf.py` | `TFIDF.ipynb` | TODO |
+| `src/kmeans.py` | the cluster cells of `TFIDF.ipynb` | scoring done, `cluster` TODO |
+| `src/lda.py` | `LDA.ipynb` | TODO |
+| `src/run.py` | — | **done** (wires the stages together) |
+| `tests/test_pipeline.py` | — | **done** |
+
+Everything else:
+
+| Path | What |
+|---|---|
 | `TextModeling/Code/` | Original notebooks — reference only, see caveats below. |
-| `TextModeling/Sources/` | Original corpus dumps. Superseded by the sklearn loader. |
+| `TextModeling/Sources/` | Original corpus dumps. Superseded by `src/data.py`. |
 | `Task Scheduling/` | Separate Flask file-upload app. Unrelated to the pipeline. |
-| `TextAnalysis/ExtractText.py` | 11 import lines, no code. Kept only because it costs nothing. |
+| `TextAnalysis/ExtractText.py` | 11 import lines, no code. |
 
 ## Notebook caveats
 
@@ -73,11 +87,24 @@ them by accident:
   current spaCy.
 - `Untitled2.ipynb` does not parse (`if match=True:`).
 
-Removed 2026-08-15 as not part of this project: `RAG.ipynb` and
-`Summarization.ipynb` (third-party tutorial notebooks, not original work) and
-`UI UX/` (an unrelated Loki series timeline demo). Both are recoverable from
-git history. `Task Scheduling/Sources/human-nutrition-text.pdf` is now orphaned
-— it was only `RAG.ipynb`'s input, and that notebook downloaded it itself.
+Removed 2026-08-15, all recoverable from git history:
+
+- `RAG.ipynb`, `Summarization.ipynb` — third-party tutorial notebooks, not
+  original work. Summarization is no longer a goal of this project.
+- `CodeSummarize.py` — a Cohere API call, dropped with the summarization goal.
+- `UI UX/` — an unrelated Loki series timeline demo.
+- `TFIDF-Copy1.ipynb` — near-identical duplicate of `TFIDF.ipynb`.
+- `TDIDF.ipynb` — empty, zero cells.
+- `Untitled1.ipynb` — five lines, loads a model and prints scores.
+- `Untitled2.ipynb` — does not parse (`if match=True:`).
+- all `.ipynb_checkpoints/` — Jupyter autosaves.
+
+`Untitled.ipynb` was renamed `BuildTrainingData.ipynb`. It builds spaCy
+DocBins — currently from IMDB, but it is the recipe to reuse for the 20
+categories.
+
+`Task Scheduling/Sources/human-nutrition-text.pdf` is orphaned — it was only
+`RAG.ipynb`'s input, and that notebook downloaded it itself.
 
 ## Configuration
 
