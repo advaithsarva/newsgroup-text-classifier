@@ -8,25 +8,35 @@ from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.feature_extraction.text import CountVectorizer
 
 
-def counts(docs, max_features=20000):
-    """Bag-of-words counts. Return (matrix, vectorizer), same shape as tfidf.vectorize.
+def counts(docs, max_features=20000, min_df=1, max_df=0.5):
+    """Bag-of-words counts. Return (matrix, vectorizer).
 
-    LDA assumes raw counts, not TF-IDF weights.
-
-    TODO: implement with CountVectorizer.
+    LDA is a generative model over word counts, so it takes counts rather than
+    the TF-IDF weights used for clustering.
     """
-    raise NotImplementedError
+    v = CountVectorizer(
+        max_features=max_features,
+        min_df=min_df,
+        max_df=max_df,
+        stop_words="english",
+    )
+    return v.fit_transform(docs), v
 
 
 def topics(matrix, n_topics, seed=42):
     """Fit LDA. Return the fitted model.
 
-    TODO: implement.
-
-    Two things the old notebook did wrong:
-      - cells 8-9 built bigrams and TF-IDF-filtered the corpus, then cell 10
-        rebuilt `corpus` from the raw words and threw all of it away
-      - it asked for 30 topics from 21 documents. Keep n_topics well below the
-        document count. Near the number of real categories is a sane start.
+    The old notebook asked for 30 topics from 21 documents, so the guard
+    matters. It also built bigrams and TF-IDF-filtered the corpus in cells
+    8-9, then rebuilt it from the raw words in cell 10 and threw all of it
+    away - which is why the pipeline here is linear and has no hidden rebuild.
     """
-    raise NotImplementedError
+    if n_topics >= matrix.shape[0]:
+        raise ValueError(f"{n_topics} topics from {matrix.shape[0]} documents")
+    model = LatentDirichletAllocation(
+        n_components=n_topics,
+        learning_method="batch",
+        max_iter=20,
+        random_state=seed,
+    )
+    return model.fit(matrix)

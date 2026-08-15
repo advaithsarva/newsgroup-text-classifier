@@ -15,18 +15,14 @@ NOISE = [
 def clean(doc):
     """Clean one document. Takes a string, returns a string.
 
-    TODO: implement.
-
-    Lowercase, strip NOISE, collapse repeated whitespace is enough to start.
-
-    Two things not to repeat from the old version:
-      - it took three file paths and wrote files, but was called as
-        df["text"].apply(CleanText) with a single string
-      - it ran lemmatize(stem(word)). Stemming first destroys the form the
-        lemmatizer needs, which is how "economy" became "eco nomi". Pick one,
-        or neither - TfidfVectorizer has stop_words="english" built in.
+    No stemming and no lemmatising. The old version ran lemmatize(stem(word)),
+    and stemming first destroys the form the lemmatizer needs, which is how
+    "economy" became "eco nomi". Stop words are handled by TfidfVectorizer.
     """
-    raise NotImplementedError
+    for pattern in NOISE:
+        doc = pattern.sub(" ", doc)
+    doc = re.sub(r"[^a-z0-9\s]+", " ", doc.lower())
+    return " ".join(doc.split())
 
 
 def clean_corpus(docs):

@@ -13,17 +13,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import clean as C
 import kmeans as K
+import lda as L
 import tfidf as T
 
-# Contains what the old cleaner destroyed: capitalized words (NASA, Shuttle),
-# numbers (1969), and noise that genuinely should go.
+# Three topics, two documents each, with shared vocabulary inside each pair -
+# otherwise there is nothing for clustering to find and the test proves nothing.
+# Also contains what the old cleaner destroyed: capitalized words (NASA,
+# Shuttle), numbers (1969), and noise that genuinely should go.
 DOCS = [
-    "NASA launched the Shuttle in 1969. Contact nasa@example.com for details.",
+    "NASA launched the Space Shuttle in 1969. Contact nasa@example.com.",
     "The graphics card renders 2 million polygons, see http://example.com/gpu",
     "My committee discussed the budget at length <b>yesterday</b>.",
-    "Orbital mechanics and rocket propulsion are space topics.",
-    "This video card driver keeps crashing on boot.",
-    "The committee vote was postponed again.",
+    "Orbital mechanics and rocket propulsion are space flight topics.",
+    "This video graphics card driver keeps crashing on boot.",
+    "The committee vote on the budget was postponed again.",
 ]
 TRUTH = [0, 1, 2, 0, 1, 2]
 
@@ -93,6 +96,44 @@ def test_clustering_beats_random():
     labels, _ = K.cluster(m, 3)
     ari = K.score(TRUTH, labels)["ari"]
     assert ari > 0.0, f"no better than random (ARI {ari:.3f})"
+
+
+def test_cluster_count_is_not_silently_clamped():
+    # the old code did k = min(k, n_samples), turning an impossible request
+    # into k=1 with no error. Asking for more clusters than documents is a
+    # caller bug and must say so.
+    m, _ = T.vectorize(C.clean_corpus(DOCS))
+    try:
+        K.cluster(m, len(DOCS) + 5)
+    except ValueError:
+        return
+    raise AssertionError("k > n_documents was silently accepted")
+
+
+# --- lda ---
+
+def test_lda_uses_counts_not_weights():
+    m, _ = L.counts(C.clean_corpus(DOCS))
+    assert m.shape[0] == len(DOCS)
+    assert m.dtype.kind in "iu", f"expected integer counts, got {m.dtype}"
+
+
+def test_lda_gives_one_distribution_per_topic():
+    m, vec = L.counts(C.clean_corpus(DOCS))
+    model = L.topics(m, 3)
+    assert model.components_.shape[0] == 3
+    assert model.components_.shape[1] == len(vec.get_feature_names_out())
+    assert len(K.top_terms(model, vec)) == 3
+
+
+def test_lda_rejects_more_topics_than_documents():
+    # the old notebook asked for 30 topics from 21 documents
+    m, _ = L.counts(C.clean_corpus(DOCS))
+    try:
+        L.topics(m, len(DOCS) + 10)
+    except ValueError:
+        return
+    raise AssertionError("more topics than documents was accepted")
 
 
 if __name__ == "__main__":

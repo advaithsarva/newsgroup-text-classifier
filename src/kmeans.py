@@ -7,14 +7,16 @@ from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 def cluster(matrix, k, seed=42):
     """Fit KMeans. Return (labels, model) - one label per document.
 
-    TODO: implement.
-
-    Do not write k = min(k, n_samples). The old code did, and on a
-    one-document corpus that silently became k=1, which is why
-    outputcluster.txt has a single cluster. If k > n_samples the caller is
-    wrong and it should fail loudly.
+    Deliberately no k = min(k, n_samples). The old code clamped, and on a
+    one-document corpus that silently became k=1 - which is why the original
+    outputcluster.txt has a single cluster and no error. Fail loudly instead.
     """
-    raise NotImplementedError
+    if k < 2:
+        raise ValueError(f"need at least 2 clusters, got {k}")
+    if k > matrix.shape[0]:
+        raise ValueError(f"k={k} exceeds {matrix.shape[0]} documents")
+    model = KMeans(n_clusters=k, init="k-means++", n_init=10, random_state=seed)
+    return model.fit_predict(matrix), model
 
 
 def score(true_labels, predicted):

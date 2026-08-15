@@ -12,15 +12,18 @@ is what happened before.
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
-def vectorize(docs, max_features=20000):
-    """Fit TF-IDF. Return (matrix, vectorizer), matrix has one row per document.
+def vectorize(docs, max_features=20000, min_df=1, max_df=0.5):
+    """Fit TF-IDF. Return (matrix, vectorizer), one row per document.
 
-    TODO: implement.
-
-    Settings worth choosing deliberately, since the old notebook did not:
-      max_features   was 100, far too small for 20 newsgroups
-      min_df         drop terms appearing in fewer than N documents
-      stop_words     "english" is built in, which is why nltk is not needed
-      sublinear_tf   True usually helps on text this long
+    max_features was 100 in the old notebook, far too small for 20 newsgroups.
+    sublinear_tf dampens long posts that repeat a word many times.
+    max_df drops terms in over half the corpus - they cannot discriminate.
     """
-    raise NotImplementedError
+    v = TfidfVectorizer(
+        max_features=max_features,
+        min_df=min_df,
+        max_df=max_df,
+        stop_words="english",
+        sublinear_tf=True,
+    )
+    return v.fit_transform(docs), v

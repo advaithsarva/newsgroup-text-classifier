@@ -27,7 +27,7 @@ def main(argv=None):
     docs = clean_corpus(docs)
     assert len(docs) == len(labels), "cleaning changed the number of documents"
 
-    matrix, vec = tfidf.vectorize(docs)
+    matrix, vec = tfidf.vectorize(docs, min_df=5)
     print(f"tf-idf: {matrix.shape[0]} documents x {matrix.shape[1]} terms")
 
     labels_pred, model = kmeans.cluster(matrix, args.k or len(names))
@@ -37,7 +37,7 @@ def main(argv=None):
         print(f"cluster {i}: {' '.join(terms)}")
 
     if args.topics:
-        cmatrix, cvec = lda.counts(docs)
+        cmatrix, cvec = lda.counts(docs, min_df=5)
         for i, terms in enumerate(kmeans.top_terms(lda.topics(cmatrix, args.topics), cvec)):
             print(f"topic {i}: {' '.join(terms)}")
 

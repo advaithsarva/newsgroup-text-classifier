@@ -1,28 +1,112 @@
-# Project SB
+# Project SB — 20 Newsgroups text classification and topic modelling
 
-Text classification and topic modeling on the 20 Newsgroups corpus —
-cleaning, TF-IDF, KMeans clustering, LDA topics, and a spaCy text classifier.
+Classifies and clusters Usenet posts across the 20 Newsgroups corpus:
+supervised classification with TF-IDF and a linear SVM, unsupervised KMeans
+clustering scored against the true labels, and LDA topic modelling.
 
-Originally a set of research notebooks (2023). Being rebuilt as a runnable
-pipeline; the notebooks are kept under `TextModeling/Code/` for reference.
+**Two dependencies: scikit-learn and numpy.** No gensim, no NLTK, no spaCy.
 
-## Setup
+| Task | Result |
+|---|---|
+| Classification, 20 categories | accuracy **0.706**, macro F1 **0.694** |
+| Classification, 4 categories | accuracy **0.843**, macro F1 **0.840** |
+| KMeans, 20 categories | ARI **0.112**, NMI **0.377** |
+| KMeans, 4 categories | ARI **0.330**, NMI **0.455** |
+
+Measured on the official by-date test split with headers, footers and quotes
+removed. Full numbers, per-class breakdown and error analysis in
+**[RESULTS.md](RESULTS.md)**.
+
+## Quick start
 
 ```bash
 pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-```
 
-The corpus is fetched by `sklearn.datasets.fetch_20newsgroups` on first run —
-nothing to download by hand.
-
-## Run
-
-```bash
-python src/run.py                 # 4 categories, KMeans
-python src/run.py --all           # all 20
+python tests/test_pipeline.py      # 14 tests, offline, no downloads
+python src/classify.py --all       # train and evaluate the classifier
+python src/run.py --all            # cluster and score against true labels
 python src/run.py --all --topics 20
 ```
+
+The corpus downloads on first run (~14MB) and caches. Everything is seeded, so
+results reproduce exactly.
+
+## Layout
+
+```
+src/
+  data.py       load 20 Newsgroups, strip label-leaking headers
+  clean.py      normalise text
+  tfidf.py      TF-IDF vectorisation
+  kmeans.py     clustering, ARI/NMI scoring, top terms
+  lda.py        bag-of-words counts and LDA topics
+  classify.py   TF-IDF -> LinearSVC, train/test evaluation
+  run.py        CLI, wires the stages together
+tests/
+  test_pipeline.py
+notebooks/original/
+  the 2023 notebooks, kept as a record - see below
+```
+
+Each module maps to one stage. Every stage takes and returns **a list with one
+string per document** — the invariant the original code broke.
+
+## Design decisions
+
+**Headers, footers and quotes are removed at load.** The `Newsgroups:` header
+names the target class, so leaving it in yields accuracy above 0.95 that
+measures nothing. Every number here is on the harder, honest task.
+
+**The by-date split is used, not a random one.** A random split lets
+near-duplicate replies from the same thread appear in both train and test.
+
+**No stemming and no lemmatising.** The original ran `lemmatize(stem(word))`;
+stemming first destroys the form the lemmatizer needs, which turned "economy"
+into `eco nomi`. Stop words are handled by `TfidfVectorizer(stop_words=...)`.
+
+**LDA is fitted on counts, not TF-IDF weights**, because it is a generative
+model over word counts.
+
+**`cluster()` raises rather than clamping `k`.** See below.
+
+## What the 2023 notebooks got wrong
+
+`notebooks/original/` holds the first version of this project. Its outputs were
+invalid, and it is kept because the failure is instructive. Everything below
+was confirmed against the notebooks' own saved cell outputs.
+
+**The corpus collapsed to a single document.** `CleanText` wrote the whole
+corpus into a text file as one line; `TFIDF.ipynb` read it back with
+`readlines()` and got a list of length 1. Three consequences:
+
+- **TF-IDF broke.** IDF is `log(N / df(t))`. With one document that is
+  `log(1/1) = 0` for every term, so the IDF half multiplied everything by zero.
+- **KMeans broke.** `true_k = min(5, n_samples)` silently became `k=1`. The
+  committed `outputcluster.txt` contains exactly one cluster. `cluster()` in
+  `src/kmeans.py` now raises instead of clamping, so this cannot recur quietly.
+- **PCA emitted `invalid value encountered in divide`**, which was saved in the
+  notebook and never investigated.
+
+**The pipeline never ran on 20 Newsgroups.** It was pointed at a group-project
+PDF, a weather CSV and a `.docx`. The newsgroup files were never fed to it.
+
+**Other confirmed defects:**
+
+- `LoadTextDataToTextFile` had `return output_file` *inside* its `for` loop, so
+  it processed exactly one file however many were passed
+- its `.txt` branch used `readline()` — one line per file
+- `CleanText` stacked 27 regexes including `\b[A-Z][a-z]*\b` (deletes every
+  capitalized word, so all proper nouns) and `[-+]?\d*\.?\d+` (all numbers)
+- `LDA.ipynb` built bigrams and TF-IDF-filtered the corpus in cells 8–9, then
+  rebuilt `corpus` from the raw words in cell 10 and discarded all of it. It
+  fit 30 topics on 21 documents
+- the trained spaCy `textcat` artifact was an **IMDB sentiment classifier**
+  (`positive`/`negative`, 500 examples) — the wrong task entirely. Replaced by
+  `src/classify.py`
+- a live Cohere API key was committed in the initial commit
+
+None of this produced an error message. Everything ran, printed numbers and
+wrote files.
 
 ## Tests
 
@@ -30,88 +114,33 @@ python src/run.py --all --topics 20
 python tests/test_pipeline.py
 ```
 
-No pytest, no network, no dataset download — a hand-written 6-document corpus
-covers it. Every test names the original bug it exists to prevent. Stages not
-yet implemented report `SKIP` rather than failing, so the suite is useful from
-the first stage onward.
+14 tests, no pytest, no network, no dataset download — a six-document fixture
+covers it. Each test names the specific historical bug it prevents, and the
+suite was validated by running it against the original implementation, where 6
+of them fail.
 
-## Layout
+The sharpest one is not an assertion about output:
 
-| Path | What |
-|---|---|
-One module per stage, matching the original notebooks:
+```python
+def test_cluster_count_is_not_silently_clamped():
+    # asking for more clusters than documents is a caller bug and must say so
+```
 
-| Path | Replaces | State |
-|---|---|---|
-| `src/data.py` | reading `Sources/*.txt` by hand | **done** |
-| `src/clean.py` | `Preprocessing.ipynb` | TODO |
-| `src/tfidf.py` | `TFIDF.ipynb` | TODO |
-| `src/kmeans.py` | the cluster cells of `TFIDF.ipynb` | scoring done, `cluster` TODO |
-| `src/lda.py` | `LDA.ipynb` | TODO |
-| `src/run.py` | — | **done** (wires the stages together) |
-| `tests/test_pipeline.py` | — | **done** |
+The original bug was not a wrong number — it was a wrong number produced
+silently.
 
-Everything else:
+## Removed from this project
 
-| Path | What |
-|---|---|
-| `TextModeling/Code/` | Original notebooks — reference only, see caveats below. |
-| `TextModeling/Sources/` | Original corpus dumps. Superseded by `src/data.py`. |
-| `Task Scheduling/` | Separate Flask file-upload app. Unrelated to the pipeline. |
-| `TextAnalysis/ExtractText.py` | 11 import lines, no code. |
+All recoverable from git history:
 
-## Notebook caveats
-
-The notebooks under `TextModeling/Code/` produced the committed outputs, but
-those outputs are not valid results. Known issues, kept here so nobody trusts
-them by accident:
-
-- `Preprocessing.ipynb` — `return output_file` sits inside the file loop, so
-  only the first file is ever read. The `.txt` branch uses `readline()`, one
-  line per file. It was run on a group-project PDF, a weather CSV and a
-  `.docx` — the 20 Newsgroups files in `Sources/` were never fed to it.
-- `CleanText` applies 27 stacked regexes that delete every capitalized word
-  and every number, then runs `lemmatize(stem(w))`, which turns "economy" into
-  "eco nomi". It writes the whole corpus as one line.
-- `TFIDF.ipynb` — reads that one line with `readlines()`, giving a corpus of
-  **one document**. IDF is `log(1/1) = 0` for every term, and
-  `true_k = min(5, n_samples)` becomes k=1. `output/outputcluster.txt` is a
-  single cluster.
-- `LDA.ipynb` — builds bigrams and TF-IDF-filters the corpus, then overwrites
-  `corpus` from the raw words two cells later, discarding all of it. Fits 30
-  topics on ~21 documents. `pd` is never imported, so both CSVs fail, and the
-  arxiv file is JSONL rather than JSON, so it fails too.
-- `output/model-best` is an **IMDB sentiment classifier** (`positive` /
-  `negative`, 500 training examples, macro-F 0.81) from `Untitled.ipynb` — not
-  a newsgroup classifier. It also pins `spacy<3.8` and will not load on
-  current spaCy.
-- `Untitled2.ipynb` does not parse (`if match=True:`).
-
-Removed 2026-08-15, all recoverable from git history:
-
+- `TextModeling/Sources/` — the 20 newsgroup text dumps, superseded by
+  `fetch_20newsgroups`; each file held a whole newsgroup, which is why the old
+  code kept seeing 21 documents instead of ~18,000
+- the IMDB spaCy model, its DocBins and configs, and the gensim LDA model
+- `output/` — the invalid results described above
+- `Task Scheduling/` — an unrelated Flask file-upload app
 - `RAG.ipynb`, `Summarization.ipynb` — third-party tutorial notebooks, not
-  original work. Summarization is no longer a goal of this project.
-- `CodeSummarize.py` — a Cohere API call, dropped with the summarization goal.
-- `UI UX/` — an unrelated Loki series timeline demo.
-- `TFIDF-Copy1.ipynb` — near-identical duplicate of `TFIDF.ipynb`.
-- `TDIDF.ipynb` — empty, zero cells.
-- `Untitled1.ipynb` — five lines, loads a model and prints scores.
-- `Untitled2.ipynb` — does not parse (`if match=True:`).
-- all `.ipynb_checkpoints/` — Jupyter autosaves.
-
-`Untitled.ipynb` was renamed `BuildTrainingData.ipynb`. It builds spaCy
-DocBins — currently from IMDB, but it is the recipe to reuse for the 20
-categories.
-
-`Task Scheduling/Sources/human-nutrition-text.pdf` is orphaned — it was only
-`RAG.ipynb`'s input, and that notebook downloaded it itself.
-
-## Configuration
-
-Nothing is hardcoded to an absolute path any more.
-
-| Variable | Used by | Default |
-|---|---|---|
-| `UPLOAD_FOLDER` | `Task Scheduling/app.py` | `Task Scheduling/Sources` |
-| `FLASK_DEBUG` | `Task Scheduling/app.py` | off (`1` enables) |
-| `COHERE_API_KEY` | `ML model/CodeSummarize.py` | required, no default |
+  original work. Summarization is no longer a goal
+- `UI UX/` — an unrelated Loki series timeline demo
+- duplicate and empty notebooks: `TFIDF-Copy1`, `TDIDF`, `Untitled1`,
+  `Untitled2`
