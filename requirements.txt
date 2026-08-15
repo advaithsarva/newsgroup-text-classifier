@@ -1,0 +1,16 @@
+# Core pipeline. sklearn ships TF-IDF, KMeans and LatentDirichletAllocation,
+# so gensim and nltk are deliberately NOT dependencies:
+#   - gensim does not play well with numpy 2.x on Python 3.12
+#   - TfidfVectorizer(stop_words="english") replaces nltk's stopword list
+scikit-learn>=1.5
+numpy>=2.0
+
+# Text classification model (see src/pipeline.py). The committed
+# output/model-best pins spacy<3.8 and will NOT load on 3.8 — retrain it.
+spacy>=3.8
+
+# Task Scheduling upload app
+flask>=3.0
+
+# Task Scheduling/ML model/CodeSummarize.py only. Needs COHERE_API_KEY in env.
+# cohere>=5.0

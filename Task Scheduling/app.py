@@ -4,9 +4,12 @@ import os
 
 app = Flask(__name__)
 
-# Configure the upload folder
-app.config['UPLOAD_FOLDER'] = r'C:\Projects\Project SB\Task Scheduling\Sources'  # Update this path as needed
-app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024  # 16MB file size limit
+# Upload folder sits next to this file, so the app runs on any machine.
+app.config['UPLOAD_FOLDER'] = os.environ.get(
+    'UPLOAD_FOLDER', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Sources')
+)
+app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024  # 30MB file size limit
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Allowed extensions
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'txt', 'docx','py','html','js','css','sql','ipynb'}
@@ -43,4 +46,5 @@ def upload_file():
         return jsonify({'error': 'Invalid file type'}), 400
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # debug=True exposes the Werkzeug console (arbitrary code execution) — opt in only.
+    app.run(debug=os.environ.get('FLASK_DEBUG') == '1')

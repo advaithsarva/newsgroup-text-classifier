@@ -10,3 +10,6 @@ Thumbs.db
 # Large data files
 TextModeling/Sources/arxiv-metadata-oai-snapshot.json
 Task Scheduling/Output/
+
+# 20 Newsgroups is fetched by sklearn at runtime — see src/pipeline.py
+scikit_learn_data/
