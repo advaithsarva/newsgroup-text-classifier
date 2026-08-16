@@ -1,0 +1,4 @@
+# The notebooks under notebooks/original/ are a record of the 2023 version, not
+# working code - see README. Without this they outweigh src/ by bytes and
+# GitHub labels the whole repo "Jupyter Notebook" instead of Python.
+notebooks/original/*.ipynb linguist-documentation
