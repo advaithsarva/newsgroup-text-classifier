@@ -14,6 +14,7 @@ from sklearn.svm import LinearSVC
 import data
 import tfidf
 from clean import clean_corpus
+from csvjson import CSVJSON
 
 # Test set is the official 20 Newsgroups by-date split: posts written after the
 # training posts. Harder than a random split, and the honest one, because a
@@ -44,17 +45,43 @@ def train(categories=None, min_df=2):
         "macro_f1": f1_score(y_test, predicted, average="macro"),
     }
     report = classification_report(y_test, predicted, target_names=names, digits=3)
-    return metrics, model, vec, report
+    per_class = classification_report(
+        y_test, predicted, target_names=names, output_dict=True
+    )
+    return metrics, per_class, report
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
+    import os
 
-    cats = None if "--all" in sys.argv else data.SUBSET_4
-    m, _, _, report = train(cats)
+    p = argparse.ArgumentParser()
+    p.add_argument("--all", action="store_true", help="all 20 categories (default 4)")
+    p.add_argument("--save", metavar="DIR", help="write metrics as JSON and CSV")
+    args = p.parse_args()
+
+    metrics, per_class, report = train(None if args.all else data.SUBSET_4)
     print(
-        f"{m['train_docs']} train / {m['test_docs']} test documents, "
-        f"{m['categories']} categories, {m['features']} features"
+        f"{metrics['train_docs']} train / {metrics['test_docs']} test documents, "
+        f"{metrics['categories']} categories, {metrics['features']} features"
     )
-    print(f"accuracy {m['accuracy']:.3f}   macro F1 {m['macro_f1']:.3f}\n")
+    print(f"accuracy {metrics['accuracy']:.3f}   macro F1 {metrics['macro_f1']:.3f}\n")
     print(report)
+
+    if args.save:
+        CSVJSON.write_json(os.path.join(args.save, "classification.json"), metrics)
+        CSVJSON.write_csv(
+            os.path.join(args.save, "per_class.csv"),
+            [
+                {
+                    "category": name,
+                    "precision": round(s["precision"], 4),
+                    "recall": round(s["recall"], 4),
+                    "f1": round(s["f1-score"], 4),
+                    "support": int(s["support"]),
+                }
+                for name, s in per_class.items()
+                if isinstance(s, dict) and name != "accuracy"
+            ],
+        )
+        print(f"saved to {args.save}/")

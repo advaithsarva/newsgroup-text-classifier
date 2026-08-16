@@ -22,7 +22,7 @@ removed. Full numbers, per-class breakdown and error analysis in
 ```bash
 pip install -r requirements.txt
 
-python tests/test_pipeline.py      # 14 tests, offline, no downloads
+python tests/test_pipeline.py      # 20 tests, offline, no downloads
 python src/classify.py --all       # train and evaluate the classifier
 python src/run.py --all            # cluster and score against true labels
 python src/run.py --all --topics 20
@@ -31,22 +31,59 @@ python src/run.py --all --topics 20
 The corpus downloads on first run (~14MB) and caches. Everything is seeded, so
 results reproduce exactly.
 
+### Your own documents
+
+Point it at a folder where each subfolder is a class:
+
+```
+corpus/politics/post1.txt
+corpus/sport/post2.txt
+```
+
+```bash
+python src/run.py --folder corpus --topics 5
+```
+
+`min_df` scales to the corpus size automatically; override with `--min-df N`.
+
+### Saving results
+
+```bash
+python src/run.py --all --topics 20 --save results
+python src/classify.py --all --save results
+```
+
+Writes `clustering.json`, `cluster_terms.csv`, `topic_terms.csv`,
+`classification.json` and `per_class.csv`.
+
 ## Layout
 
 ```
 src/
-  data.py       load 20 Newsgroups, strip label-leaking headers
+  data.py       load 20 Newsgroups or a folder, strip label-leaking headers
   clean.py      normalise text
   tfidf.py      TF-IDF vectorisation
   kmeans.py     clustering, ARI/NMI scoring, top terms
   lda.py        bag-of-words counts and LDA topics
   classify.py   TF-IDF -> LinearSVC, train/test evaluation
   run.py        CLI, wires the stages together
+  csvjson.py    CSV/JSON read, write and convert      (from dsutil.py)
+  osmod.py      recursive file discovery by extension (from dsutil.py)
 tests/
   test_pipeline.py
 notebooks/original/
   the 2023 notebooks, kept as a record - see below
 ```
+
+`csvjson.py` and `osmod.py` are lifted from `dsutil.py`
+(`OSModulePlayGround`), trimmed to what this project uses and kept in the
+original class/static-method style. `osmod.filter_files_walk` is what makes
+`--folder` work; `csvjson.CSVJSON` is what makes `--save` work.
+
+**`dsutil.py`'s `CleanText` was deliberately not reused.** It is the same
+function that produced the failures described below — it strips every
+capitalized word and every number, and runs `lemmatize(stem(word))`. It is
+still present in `dsutil.py` and will damage any corpus it touches.
 
 Each module maps to one stage. Every stage takes and returns **a list with one
 string per document** — the invariant the original code broke.
@@ -114,10 +151,10 @@ wrote files.
 python tests/test_pipeline.py
 ```
 
-14 tests, no pytest, no network, no dataset download — a six-document fixture
-covers it. Each test names the specific historical bug it prevents, and the
-suite was validated by running it against the original implementation, where 6
-of them fail.
+20 tests, no pytest, no network, no dataset download — a six-document fixture
+and temporary directories cover it. Each test names the specific historical bug
+it prevents, and the suite was validated by running it against the original
+implementation, where 6 of them fail.
 
 The sharpest one is not an assertion about output:
 

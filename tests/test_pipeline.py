@@ -7,14 +7,19 @@ have not written yet show SKIP, so this is useful before the code exists.
 """
 
 import os
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 
 import clean as C
+import data as D
 import kmeans as K
 import lda as L
 import tfidf as T
+from csvjson import CSVJSON
+from osmod import OSMod
 
 # Three topics, two documents each, with shared vocabulary inside each pair -
 # otherwise there is nothing for clustering to find and the test proves nothing.
@@ -134,6 +139,100 @@ def test_lda_rejects_more_topics_than_documents():
     except ValueError:
         return
     raise AssertionError("more topics than documents was accepted")
+
+
+# --- csvjson / osmod (from dsutil.py) ---
+
+def test_json_round_trip():
+    tmp = tempfile.mkdtemp()
+    try:
+        path = os.path.join(tmp, "nested", "metrics.json")
+        payload = {"ari": 0.112, "categories": ["a", "b"], "documents": 6}
+        CSVJSON.write_json(path, payload)
+        assert CSVJSON.read_json(path) == payload
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_csv_round_trip_infers_fieldnames():
+    tmp = tempfile.mkdtemp()
+    try:
+        path = os.path.join(tmp, "per_class.csv")
+        rows = [{"category": "sci.space", "f1": "0.76"}, {"category": "misc", "f1": "0.38"}]
+        CSVJSON.write_csv(path, rows)  # fieldnames omitted on purpose
+        assert CSVJSON.read_csv(path) == rows
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_load_folder_labels_by_subfolder():
+    tmp = tempfile.mkdtemp()
+    try:
+        for category, text in [("space", "orbit rocket launch"), ("guns", "firearm law")]:
+            os.makedirs(os.path.join(tmp, category))
+            for n in range(2):
+                with open(os.path.join(tmp, category, f"{n}.txt"), "w") as f:
+                    f.write(text)
+        docs, labels, names = D.load_folder(tmp)
+        assert len(docs) == 4, f"expected 4 documents, got {len(docs)}"
+        assert len(labels) == len(docs)
+        assert sorted(names) == ["guns", "space"]
+        assert len(set(labels)) == 2
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_load_folder_rejects_an_empty_directory():
+    tmp = tempfile.mkdtemp()
+    try:
+        D.load_folder(tmp)
+    except ValueError:
+        return
+    finally:
+        shutil.rmtree(tmp)
+    raise AssertionError("an empty directory was accepted")
+
+
+def test_filter_files_walk_is_recursive_and_ordered():
+    tmp = tempfile.mkdtemp()
+    try:
+        os.makedirs(os.path.join(tmp, "deep", "deeper"))
+        for name in ["b.txt", "a.txt", "skip.md"]:
+            open(os.path.join(tmp, "deep", "deeper", name), "w").close()
+        found = OSMod.filter_files_walk(tmp, [".txt"])
+        assert len(found) == 2, f"expected 2 .txt files, got {len(found)}"
+        assert found == sorted(found), "results must be deterministic"
+    finally:
+        shutil.rmtree(tmp)
+
+
+def test_small_corpus_runs_end_to_end():
+    # min_df was hardcoded to 5, which is right for 11,000 newsgroup posts and
+    # empties the vocabulary on a small folder:
+    #   ValueError: max_df corresponds to < documents than min_df
+    import run
+
+    tmp = tempfile.mkdtemp()
+    out = tempfile.mkdtemp()
+    try:
+        words = {
+            "space": "orbit rocket launch nasa shuttle satellite mission flight",
+            "guns": "firearm gun rifle law control weapon amendment policy",
+            "faith": "god church bible christian prayer belief worship spirit",
+        }
+        for category, text in words.items():
+            os.makedirs(os.path.join(tmp, category))
+            for n in range(3):
+                with open(os.path.join(tmp, category, f"{n}.txt"), "w") as f:
+                    f.write(f"{text} {n}")
+        run.main(["--folder", tmp, "--topics", "3", "--save", out])
+        saved = CSVJSON.read_json(os.path.join(out, "clustering.json"))
+        assert saved["documents"] == 9
+        assert saved["ari"] > 0.0
+        assert os.path.exists(os.path.join(out, "topic_terms.csv"))
+    finally:
+        shutil.rmtree(tmp)
+        shutil.rmtree(out)
 
 
 if __name__ == "__main__":
