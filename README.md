@@ -5,7 +5,7 @@ supervised classification with TF-IDF and a linear SVM, unsupervised KMeans
 clustering scored against the true labels, and LDA topic modelling.
 
 **Two dependencies: scikit-learn and numpy.** No gensim, no NLTK, no spaCy.
-matplotlib is a third, optional one — it's only imported by `--plot`.
+plotly is a third, optional one — it's only imported by `--plot`.
 
 | Task | Result |
 |---|---|
@@ -27,7 +27,7 @@ python tests/test_pipeline.py      # 20 tests, offline, no downloads
 python src/classify.py --all       # train and evaluate the classifier
 python src/run.py --all            # cluster and score against true labels
 python src/run.py --all --topics 20
-python src/run.py --all --plot clusters.png   # 2D scatter of the clusters
+python src/run.py --all --plot clusters.html  # interactive cluster scatter, hover for topics
 ```
 
 The corpus downloads on first run (~14MB) and caches. Everything is seeded, so
@@ -67,7 +67,7 @@ src/
   tfidf.py      TF-IDF vectorisation
   kmeans.py     clustering, ARI/NMI scoring, top terms
   lda.py        bag-of-words counts and LDA topics
-  plot.py       2D cluster scatter plot (matplotlib, only used by --plot)
+  plot.py       interactive cluster scatter, hover for topics (plotly, only used by --plot)
   classify.py   TF-IDF -> LinearSVC, train/test evaluation
   run.py        CLI, wires the stages together
   csvjson.py    CSV/JSON read, write and convert      (from dsutil.py)

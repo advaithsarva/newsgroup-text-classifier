@@ -5,6 +5,7 @@
     python src/run.py --all --topics 20
     python src/run.py --folder path/to/corpus  your own documents
     python src/run.py --all --save results     write JSON + CSV
+    python src/run.py --all --plot clusters.html   interactive cluster scatter
 """
 
 import argparse
@@ -25,7 +26,9 @@ def main(argv=None):
     p.add_argument("-k", type=int, default=0, help="clusters (default: one per category)")
     p.add_argument("--topics", type=int, default=0, help="LDA topics, 0 to skip")
     p.add_argument("--save", metavar="DIR", help="write results as JSON and CSV")
-    p.add_argument("--plot", metavar="PATH", help="save a 2D cluster scatter plot (e.g. clusters.png)")
+    p.add_argument(
+        "--plot", metavar="PATH", help="save an interactive cluster scatter plot (e.g. clusters.html)"
+    )
     p.add_argument(
         "--min-df",
         type=int,
@@ -61,7 +64,7 @@ def main(argv=None):
     if args.plot:
         from plot import plot_clusters
 
-        plot_clusters(matrix, labels_pred, args.plot)
+        plot_clusters(matrix, labels_pred, cluster_terms, args.plot)
         print(f"saved plot to {args.plot}")
 
     topic_terms = []
