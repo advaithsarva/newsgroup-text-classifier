@@ -1,7 +1,9 @@
 scikit-learn>=1.5
 numpy>=2.0
+matplotlib>=3.9
 
-# That is the whole list.
+# matplotlib is only for --plot (src/plot.py); the pipeline itself still
+# runs on scikit-learn + numpy alone.
 #
 # scikit-learn ships TfidfVectorizer, KMeans, LatentDirichletAllocation,
 # LinearSVC, the 20 Newsgroups loader and every metric used here, so the

@@ -25,6 +25,7 @@ def main(argv=None):
     p.add_argument("-k", type=int, default=0, help="clusters (default: one per category)")
     p.add_argument("--topics", type=int, default=0, help="LDA topics, 0 to skip")
     p.add_argument("--save", metavar="DIR", help="write results as JSON and CSV")
+    p.add_argument("--plot", metavar="PATH", help="save a 2D cluster scatter plot (e.g. clusters.png)")
     p.add_argument(
         "--min-df",
         type=int,
@@ -56,6 +57,12 @@ def main(argv=None):
     cluster_terms = kmeans.top_terms(model, vec)
     for i, terms in enumerate(cluster_terms):
         print(f"cluster {i}: {' '.join(terms)}")
+
+    if args.plot:
+        from plot import plot_clusters
+
+        plot_clusters(matrix, labels_pred, args.plot)
+        print(f"saved plot to {args.plot}")
 
     topic_terms = []
     if args.topics:
