@@ -23,11 +23,11 @@ removed. Full numbers, per-class breakdown and error analysis in
 ```bash
 pip install -r requirements.txt
 
-python tests/test_pipeline.py      # 20 tests, offline, no downloads
+python tests/test_pipeline.py      # 21 tests, offline, no downloads
 python src/classify.py --all       # train and evaluate the classifier
 python src/run.py --all            # cluster and score against true labels
 python src/run.py --all --topics 20
-python src/run.py --all --plot clusters.html  # interactive cluster scatter, hover for topics
+python src/run.py --all --plot clusters.html  # interactive cluster scatter, hover for topic name + terms
 ```
 
 The corpus downloads on first run (~14MB) and caches. Everything is seeded, so
@@ -56,7 +56,9 @@ python src/classify.py --all --save results
 ```
 
 Writes `clustering.json`, `cluster_terms.csv`, `topic_terms.csv`,
-`classification.json` and `per_class.csv`.
+`classification.json` and `per_class.csv`. `cluster_terms.csv` and
+`topic_terms.csv` each have a `label` column (the majority-vote topic name)
+alongside `terms` (the raw keywords).
 
 ## Layout
 
@@ -65,7 +67,7 @@ src/
   data.py       load 20 Newsgroups or a folder, strip label-leaking headers
   clean.py      normalise text
   tfidf.py      TF-IDF vectorisation
-  kmeans.py     clustering, ARI/NMI scoring, top terms
+  kmeans.py     clustering, ARI/NMI scoring, top terms, majority-vote topic labels
   lda.py        bag-of-words counts and LDA topics
   plot.py       interactive cluster scatter, hover for topics (plotly, only used by --plot)
   classify.py   TF-IDF -> LinearSVC, train/test evaluation
@@ -108,6 +110,14 @@ into `eco nomi`. Stop words are handled by `TfidfVectorizer(stop_words=...)`.
 model over word counts.
 
 **`cluster()` raises rather than clamping `k`.** See below.
+
+**Clusters and LDA topics get a name, not just a keyword list.**
+`kmeans.label_clusters()` majority-votes the true category of the documents
+that landed in each cluster (or, for LDA, each topic's `argmax` assignment)
+and reports it with a purity percentage, e.g. `sci.crypt (96%)`. Ground truth
+is used only for this label and for scoring — never for fitting. A low
+percentage, or a deceptively high one on an artifact cluster (see
+`RESULTS.md`), is itself informative.
 
 ## What the 2023 notebooks got wrong
 
@@ -154,9 +164,9 @@ wrote files.
 python tests/test_pipeline.py
 ```
 
-20 tests, no pytest, no network, no dataset download — a six-document fixture
-and temporary directories cover it. Each test names the specific historical bug
-it prevents, and the suite was validated by running it against the original
+21 tests, no pytest, no network, no dataset download — a six-document fixture
+and temporary directories cover it. Most tests name the specific historical bug
+they prevent, and the suite was validated by running it against the original
 implementation, where 6 of them fail.
 
 The sharpest one is not an assertion about output:

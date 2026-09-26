@@ -58,21 +58,26 @@ def main(argv=None):
     print(f"ARI {scores['ari']:.3f}   NMI {scores['nmi']:.3f}")
 
     cluster_terms = kmeans.top_terms(model, vec)
+    cluster_labels = kmeans.label_clusters(labels, labels_pred, names)
     for i, terms in enumerate(cluster_terms):
-        print(f"cluster {i}: {' '.join(terms)}")
+        print(f"cluster {i} [{cluster_labels[i]}]: {' '.join(terms)}")
 
     if args.plot:
         from plot import plot_clusters
 
-        plot_clusters(matrix, labels_pred, cluster_terms, args.plot)
+        plot_clusters(matrix, labels_pred, cluster_terms, cluster_labels, args.plot)
         print(f"saved plot to {args.plot}")
 
     topic_terms = []
+    topic_labels = []
     if args.topics:
         cmatrix, cvec = lda.counts(docs, min_df=min_df)
-        topic_terms = kmeans.top_terms(lda.topics(cmatrix, args.topics), cvec)
+        lda_model = lda.topics(cmatrix, args.topics)
+        topic_terms = kmeans.top_terms(lda_model, cvec)
+        topic_assignments = lda_model.transform(cmatrix).argmax(axis=1)
+        topic_labels = kmeans.label_clusters(labels, topic_assignments, names)
         for i, terms in enumerate(topic_terms):
-            print(f"topic {i}: {' '.join(terms)}")
+            print(f"topic {i} [{topic_labels[i]}]: {' '.join(terms)}")
 
     if args.save:
         summary = {
@@ -86,12 +91,18 @@ def main(argv=None):
         CSVJSON.write_json(os.path.join(args.save, "clustering.json"), summary)
         CSVJSON.write_csv(
             os.path.join(args.save, "cluster_terms.csv"),
-            [{"cluster": i, "terms": " ".join(t)} for i, t in enumerate(cluster_terms)],
+            [
+                {"cluster": i, "label": cluster_labels[i], "terms": " ".join(t)}
+                for i, t in enumerate(cluster_terms)
+            ],
         )
         if topic_terms:
             CSVJSON.write_csv(
                 os.path.join(args.save, "topic_terms.csv"),
-                [{"topic": i, "terms": " ".join(t)} for i, t in enumerate(topic_terms)],
+                [
+                    {"topic": i, "label": topic_labels[i], "terms": " ".join(t)}
+                    for i, t in enumerate(topic_terms)
+                ],
             )
         print(f"\nsaved to {args.save}/")
 

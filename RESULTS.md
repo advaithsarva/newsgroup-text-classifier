@@ -72,28 +72,36 @@ happens here: the five `comp.*` groups share so much vocabulary that KMeans
 carves them along different lines than the newsgroup boundaries.
 
 Clusters are nonetheless clearly interpretable, which is the real evidence the
-pipeline works:
+pipeline works. `kmeans.label_clusters()` names each cluster after the
+newsgroup that actually makes up most of its members (ground truth used only
+for this label, never for fitting), next to the keywords `top_terms()` gives:
 
 ```
-cluster  4: armenians armenian turkish turks armenia turkey genocide
-cluster  7: israel israeli jews arab arabs jewish israelis lebanon peace
-cluster 11: key encryption clipper chip keys escrow government secure nsa
-cluster 13: team game games hockey season players play teams league win
-cluster 15: drive drives hard disk floppy scsi cd boot internal problem
-cluster 18: god jesus bible christians christian people believe christ faith
+cluster  4 [talk.politics.mideast 90%]: armenians armenian turkish turks armenia turkey genocide
+cluster  7 [talk.politics.mideast 95%]: israel israeli jews arab arabs jewish israelis lebanon peace
+cluster 11 [sci.crypt 96%]: key encryption clipper chip keys escrow government secure nsa
+cluster 13 [rec.sport.hockey 73%]: team game games hockey season players play teams league win
+cluster 15 [comp.sys.ibm.pc.hardware 35%]: drive drives hard disk floppy scsi cd boot internal problem
+cluster 18 [soc.religion.christian 60%]: god jesus bible christians christian people believe christ faith
 ```
+
+Clusters 4 and 7 both land on `talk.politics.mideast` — a real class split, not
+a labelling bug, and exactly the kind of thing NMI tolerates better than ARI
+(see above). Cluster 15's 35% majority shows the label is a summary, not a
+guarantee: several PC-hardware subcategories bleed into one cluster.
 
 One cluster is an artifact worth noting rather than hiding:
 
 ```
-cluster 10: chastity n3jxp shameful intellect skepticism surrender gordon banks
+cluster 10 [sci.med 99%]: chastity n3jxp shameful intellect skepticism surrender gordon banks
 ```
 
-That is a single `sci.med` poster's signature block, repeated across enough
-posts to form its own cluster. `remove=("footers",)` strips conventional
-signatures but not this one. It is a good illustration that a clean-looking
-clustering result can still contain a cluster that has learned an author rather
-than a topic.
+That 99% looks like a clean result but isn't: it's a single `sci.med` poster's
+signature block, repeated across enough posts to form its own cluster.
+`remove=("footers",)` strips conventional signatures but not this one. A
+majority-vote label can be just as confidently wrong as a keyword list — it has
+learned an author, not a topic, and there is no purity score that catches
+that automatically.
 
 ---
 
@@ -104,28 +112,33 @@ than a topic.
 Fitted on bag-of-words counts, not TF-IDF weights, since LDA is a generative
 model over counts.
 
-Coherent topics:
+Coherent topics, again labelled by the true category of the documents each
+topic is assigned to (`model.transform(...).argmax(axis=1)`, then the same
+`label_clusters()` used for KMeans):
 
 ```
-topic  4: key government encryption president chip public use clipper security
-topic  7: god jesus believe does bible mr faith christ christian say
-topic  8: space nasa launch earth satellite ground shuttle orbit use wire
-topic 15: armenian turkish armenians turkey people turks jews armenia genocide
-topic 16: window use file server using set widget motif application windows
+topic  4 [sci.crypt 71%]: key government encryption president chip public use clipper security
+topic  7 [soc.religion.christian 46%]: god jesus believe does bible mr faith christ christian say
+topic  8 [sci.space 64%]: space nasa launch earth satellite ground shuttle orbit use wire
+topic 15 [talk.politics.mideast 80%]: armenian turkish armenians turkey people turks jews armenia genocide
+topic 16 [comp.windows.x 57%]: window use file server using set widget motif application windows
 ```
 
 Two topics captured noise rather than meaning:
 
 ```
-topic  9: 10 00 25 15 11 12 20 14 16 13
-topic 13: ax max pl giz bhj 1t 34u wm 3t g9v
+topic  9 [rec.sport.hockey 44%]: 10 00 25 15 11 12 20 14 16 13
+topic 13 [comp.os.ms-windows.misc 100%]: ax max pl giz bhj 1t 34u wm 3t g9v
 ```
 
 Topic 9 is bare numbers; topic 13 is the tail of a base64-encoded binary posted
 to a newsgroup. Both are honest failures of a token filter that keeps
 alphanumerics, and both are fixable with a minimum token length and a rule
 against tokens mixing digits and letters. Left in place because the report
-should show what the pipeline actually produced.
+should show what the pipeline actually produced. Topic 13's 100% label is the
+same trap as cluster 10 above: a single-author binary blob happens to sit in
+one newsgroup, so the majority vote is perfectly confident about a topic that
+isn't one — a label purity score is not a coherence score.
 
 ---
 
@@ -133,7 +146,7 @@ should show what the pipeline actually produced.
 
 ```bash
 pip install -r requirements.txt
-python tests/test_pipeline.py      # 14 tests
+python tests/test_pipeline.py      # 21 tests
 python src/classify.py --all
 python src/run.py --all --topics 20
 ```

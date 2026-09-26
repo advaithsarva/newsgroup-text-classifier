@@ -2,8 +2,9 @@
 
     python tests/test_pipeline.py
 
-Runs offline on the 6 documents below. No pytest, no downloads. Stages you
-have not written yet show SKIP, so this is useful before the code exists.
+21 tests. Runs offline on the 6 documents below. No pytest, no downloads.
+Stages you have not written yet show SKIP, so this is useful before the code
+exists.
 """
 
 import os
@@ -101,6 +102,17 @@ def test_clustering_beats_random():
     labels, _ = K.cluster(m, 3)
     ari = K.score(TRUTH, labels)["ari"]
     assert ari > 0.0, f"no better than random (ARI {ari:.3f})"
+
+
+def test_label_clusters_names_the_majority_category():
+    # top_terms only gives a keyword soup; this names a cluster after what it
+    # actually is, using the real category of the documents that landed in it.
+    names = ["space", "graphics", "budget"]
+    assert K.label_clusters(TRUTH, TRUTH, names) == [
+        "space (100%)",
+        "graphics (100%)",
+        "budget (100%)",
+    ]
 
 
 def test_cluster_count_is_not_silently_clamped():

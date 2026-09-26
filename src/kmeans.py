@@ -1,5 +1,7 @@
 """KMeans clustering and scoring. Replaces the cluster cells in TFIDF.ipynb."""
 
+from collections import Counter
+
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
 
@@ -34,6 +36,21 @@ def score(true_labels, predicted):
         "ari": adjusted_rand_score(true_labels, predicted),
         "nmi": normalized_mutual_info_score(true_labels, predicted),
     }
+
+
+def label_clusters(true_labels, predicted, names):
+    """Name each cluster/topic after its majority real category.
+
+    top_terms gives a keyword soup; this says what the cluster actually is,
+    by looking at which ground-truth category makes up most of its members.
+    Needs true_labels, which data.py always returns alongside the corpus.
+    """
+    result = []
+    for c in sorted(set(predicted)):
+        members = [t for t, p in zip(true_labels, predicted) if p == c]
+        top, n = Counter(members).most_common(1)[0]
+        result.append(f"{names[top]} ({n / len(members):.0%})")
+    return result
 
 
 def top_terms(model, vectorizer, n=10):
